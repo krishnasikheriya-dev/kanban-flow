@@ -11,7 +11,6 @@ export async function POST(
     await connectToDatabase();
     const { columnId } = await params;
 
-    // TODO: 1. Parse request body for task title and content.
     const body = await request.json();
     const { title, content } = body;
 
@@ -22,7 +21,6 @@ export async function POST(
       );
     }
 
-    // Verify parent column exists before creating the sub-resource
     const parentColumn = await Column.findById(columnId);
     if (!parentColumn) {
       return NextResponse.json(
@@ -30,7 +28,6 @@ export async function POST(
         { status: 404 },
       );
     }
-    // TODO: 2. Create the new Task with the given columnId.
     const newTask = new Task({
       title: title.trim(),
       content: content ? content.trim() : "",
@@ -38,8 +35,6 @@ export async function POST(
     });
 
     await newTask.save();
-    // TODO: 3. CRITICAL: Update the parent Column's `taskOrder` array to include this new task's ObjectId.
-    // Hint: Use Column.findByIdAndUpdate with $push.
     await Column.findByIdAndUpdate(columnId, {
       $push: { taskOrder: newTask._id },
     });

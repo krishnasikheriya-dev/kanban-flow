@@ -37,7 +37,6 @@ export function TaskCard({ task }: TaskCardProps) {
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    // Add visual clarity by lowering opacity and applying a dashed border structure while item is actively floating
     opacity: isDragging ? 0.3 : 1,
     border: isDragging ? "1px dashed rgb(148, 163, 184)" : undefined,
   };
@@ -64,7 +63,6 @@ export function TaskCard({ task }: TaskCardProps) {
         )}
       </Card>
       
-      {/* We render the modal conditionally so it doesn't pollute the DOM when closed */}
       {isModalOpen && (
         <TaskModal 
           task={task} 

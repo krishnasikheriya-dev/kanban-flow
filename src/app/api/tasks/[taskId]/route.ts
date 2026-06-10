@@ -55,7 +55,6 @@ export async function DELETE(
       return NextResponse.json({ error: "Task not found" }, { status: 404 });
     }
 
-    // Remove task from Column's taskOrder array
     await Column.findByIdAndUpdate(task.columnId, {
       $pull: { taskOrder: taskId },
     });

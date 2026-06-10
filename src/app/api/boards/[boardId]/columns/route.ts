@@ -4,8 +4,6 @@ import { Column } from "@/models/Column";
 import { Board } from "@/models/Board";
 import { Task } from "@/models/Task";
 
-// Prevent Next.js from tree-shaking the Task import since we only use it in a Mongoose populate string
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const _Task = Task;
 
 export async function GET(
@@ -16,9 +14,6 @@ export async function GET(
     await connectToDatabase();
     const { boardId } = await params;
 
-    // TODO: Fetch all columns that belong to this boardId.
-    // Hint: You might need to populate the tasks within the columns here,
-    // or fetch them separately.
    const boardWithData = await Board.findById(boardId).populate({
       path: 'columnOrder',
       model: 'Column',
@@ -53,7 +48,6 @@ export async function POST(
     await connectToDatabase();
     const { boardId } = await params;
 
-    // TODO: 1. Parse request body for column name.
     const body = await request.json();
     const { name } = body;
 
@@ -71,7 +65,6 @@ export async function POST(
         { status: 404 },
       );
     }
-    // TODO: 2. Create the new Column with the given boardId.
     const newColumn = new Column({
       name: name.trim(),
       boardId: boardId,
@@ -79,8 +72,6 @@ export async function POST(
     });
 
     await newColumn.save();
-    // TODO: 3. IMPORTANT: Update the parent Board's `columnOrder` array to include this new column's ObjectId.
-    // Hint: Use Board.findByIdAndUpdate with $push.
     await Board.findByIdAndUpdate(boardId, {
       $push: { columnOrder: newColumn._id },
     });

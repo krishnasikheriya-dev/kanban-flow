@@ -10,7 +10,6 @@ export async function PUT(
     await connectToDatabase();
     const { columnId } = await params;
 
-    // TODO: 1. Parse request body to get the `taskOrder` array of ObjectIds.
     const body = await request.json();
     const { taskOrder } = body;
 
@@ -21,11 +20,10 @@ export async function PUT(
       );
     }
 
-    // TODO: 2. Use Column.findByIdAndUpdate to overwrite the existing taskOrder with the new array.
     const updatedColumn = await Column.findByIdAndUpdate(
       columnId,
       { $set: { taskOrder: taskOrder } },
-      { new: true }, // Returns the document after modifications are applied
+      { new: true },
     );
 
     if (!updatedColumn) {

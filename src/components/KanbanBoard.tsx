@@ -22,7 +22,6 @@ import { KanbanColumn } from "./KanbanColumn";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
-// TODO: Import necessary shadcn UI components (Card, ScrollArea, etc.)
 
 interface TaskData {
   _id: string;
@@ -44,7 +43,6 @@ interface BoardData {
   columnOrder: ColumnData[];
 }
 export function KanbanBoard({ boardId }: { boardId: string }) {
-  // TODO: Use TanStack Query's `useQuery` to fetch the Board and its Columns.
   const {
     data: board,
     isLoading,
@@ -52,12 +50,10 @@ export function KanbanBoard({ boardId }: { boardId: string }) {
   } = useQuery<BoardData>({
     queryKey: ["board", boardId],
     queryFn: async () => {
-      // Fetch actual board details
       const boardRes = await fetch(`/api/boards/${boardId}`);
       if (!boardRes.ok) throw new Error("Failed to fetch board data");
       const boardData = await boardRes.json();
 
-      // Fetch columns
       const res = await fetch(`/api/boards/${boardId}/columns`);
       if (!res.ok) throw new Error("Network response was not ok");
       const columnOrder = await res.json();
@@ -88,7 +84,6 @@ export function KanbanBoard({ boardId }: { boardId: string }) {
     },
     onError: (error) => {
       console.error("Persistence sync breakdown:", error);
-      // Optional: Add a toast notification notification here for visual feedback
     },
   });
 
@@ -130,7 +125,6 @@ export function KanbanBoard({ boardId }: { boardId: string }) {
     },
   });
 
-  //Local state to handle fluid UI updates during dragging before Phase 4 mutation;
   const [columns, setColumns] = useState<ColumnData[]>([]);
   const [activeTask, setActiveTask] = useState<TaskData | null>(null);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -165,11 +159,10 @@ export function KanbanBoard({ boardId }: { boardId: string }) {
     }
   }, [board]);
 
-  // Configure sensors for drag-and-drop mechanics
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 8, // Avoids breaking normal click actions on buttons/cards
+        distance: 8,
       },
     }),
   );
@@ -188,7 +181,6 @@ export function KanbanBoard({ boardId }: { boardId: string }) {
       </div>
     );
 
-  // TODO: Setup DndContext and its event handlers (onDragStart, onDragOver, onDragEnd)
   function handleDragStart(event: DragStartEvent) {
     if (event.active.data.current?.type === "Task") {
       setActiveTask(event.active.data.current.task);
@@ -208,7 +200,6 @@ export function KanbanBoard({ boardId }: { boardId: string }) {
     const isOverTask = over.data.current?.type === "Task";
     const isOverColumn = over.data.current?.type === "Column";
 
-    //Scenario A: Dragging a Task over another Task across or within columns
     if (isActiveTask && isOverTask) {
       setColumns((prev) => {
         const activeColumn = prev.find((col) =>
@@ -252,7 +243,6 @@ export function KanbanBoard({ boardId }: { boardId: string }) {
       });
     }
 
-    // Scenario B: Dragging a Task over an empty Column container directly
     if (isActiveTask && isOverColumn) {
       setColumns((prev) => {
         const activeColumn = prev.find((col) =>
@@ -298,7 +288,6 @@ export function KanbanBoard({ boardId }: { boardId: string }) {
     const activeId = active.id.toString();
     const overId = over.id.toString();
 
-    // Scenario C: Reordering columns themselves along the horizontal line
     if (active.data.current?.type === "Column" && activeId !== overId) {
       setColumns((prev) => {
         const oldIndex = prev.findIndex((col) => col._id === activeId);
@@ -307,7 +296,6 @@ export function KanbanBoard({ boardId }: { boardId: string }) {
       });
     }
 
-    // Scenario D & E: Sorting tasks within columns and saving cross-column drops
     if (active.data.current?.type === "Task") {
       setColumns((prev) => {
         const currentColumn = prev.find((col) => col.taskOrder.some((t) => t._id === activeId));
@@ -413,7 +401,6 @@ export function KanbanBoard({ boardId }: { boardId: string }) {
         )}
       </div>
 
-      {/* TODO: Wrap the columns in a DndContext and SortableContext */}
       <DndContext
         sensors={sensors}
         collisionDetection={closestCorners}
@@ -426,7 +413,6 @@ export function KanbanBoard({ boardId }: { boardId: string }) {
             items={columns.map((col) => col._id)}
             strategy={horizontalListSortingStrategy}
           >
-            {/* Render KanbanColumn components here */}
             {columns.map((column) => (
               <KanbanColumn
                 key={column._id}
@@ -435,7 +421,6 @@ export function KanbanBoard({ boardId }: { boardId: string }) {
               />
             ))}
 
-            {/* Add Column UI */}
             <div className="w-[350px] shrink-0">
               {isAddingColumn ? (
                 <div className="bg-white dark:bg-slate-800 p-3 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700">

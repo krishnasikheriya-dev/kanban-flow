@@ -17,15 +17,12 @@ export async function DELETE(
       return NextResponse.json({ error: "Column not found" }, { status: 404 });
     }
 
-    // Remove column from Board's columnOrder array
     await Board.findByIdAndUpdate(column.boardId, {
       $pull: { columnOrder: columnId },
     });
 
-    // Cascade delete all tasks inside the column
     await Task.deleteMany({ columnId: columnId });
 
-    // Delete the column itself
     await Column.findByIdAndDelete(columnId);
 
     return NextResponse.json({ message: "Column and associated tasks deleted successfully" });

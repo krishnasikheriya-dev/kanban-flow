@@ -5,12 +5,10 @@ import { Board } from "@/models/Board";
 export async function GET() {
   try {
     await connectToDatabase();
-    // TODO: Fetch all boards. Consider populating columns if needed,
-    // or just return the boards as is for now.
 
     const boards = await Board.find({}).sort({ createdAt: -1 });
 
-    return NextResponse.json(boards); // Replace with actual boards
+    return NextResponse.json(boards);
   } catch (error) {
     console.error("Error fetching boards:", error);
     return NextResponse.json(
@@ -23,7 +21,6 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     await connectToDatabase();
-    // TODO: Parse the request body for the board title.
     const body = await request.json();
     const { title } = body;
 
@@ -33,7 +30,6 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
-    // TODO: Create a new Board and save it to the database.
     const newBoard = new Board({
       title: title.trim(),
       columnOrder: [],

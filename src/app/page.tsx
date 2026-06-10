@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 
 export default async function Home() {
   await connectToDatabase();
-  // Fetch the most recently created board
   const board = await Board.findOne().sort({ createdAt: -1 });
 
   async function createBoard() {

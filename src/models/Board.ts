@@ -9,7 +9,6 @@ export interface IBoard extends Document {
 
 const BoardSchema: Schema = new Schema(
   {
-    // TODO: Define the Mongoose schema fields for the Board
     title : {
       type: String,
       required: true,
@@ -27,5 +26,4 @@ const BoardSchema: Schema = new Schema(
   { timestamps: true }
 );
 
-// TODO: Export the Board model.
 export const Board: Model<IBoard> = mongoose.models.Board || mongoose.model<IBoard>('Board', BoardSchema);

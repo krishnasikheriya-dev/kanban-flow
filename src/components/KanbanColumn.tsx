@@ -78,7 +78,6 @@ export function KanbanColumn({ column, tasks }: KanbanColumnProps) {
     createTaskMutation.mutate(newTaskTitle);
   }
 
-  // TODO: Setup `useSortable` for the column itself so columns can be reordered (optional but recommended)
   const {
     attributes,
     listeners,
@@ -97,7 +96,6 @@ export function KanbanColumn({ column, tasks }: KanbanColumnProps) {
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    // Lower the opacity of the entire column element while dragging it
     opacity: isDragging ? 0.4 : 1,
   };
 
@@ -130,7 +128,6 @@ export function KanbanColumn({ column, tasks }: KanbanColumnProps) {
                   size="icon" 
                   className="h-6 w-6 text-slate-400 hover:text-red-500 hover:bg-slate-200 dark:hover:bg-slate-700 z-10"
                   onPointerDown={(e) => {
-                    // Prevent dnd-kit from starting a drag when clicking the button
                     e.stopPropagation();
                   }}
                   onClick={(e) => {
@@ -172,9 +169,7 @@ export function KanbanColumn({ column, tasks }: KanbanColumnProps) {
       </CardHeader>
 
       <CardContent className="flex-1 overflow-y-auto p-2 flex flex-col gap-2 min-h-37.5">
-        {/* TODO: Also set up a `SortableContext` inside this component for the tasks it contains. */}
         <SortableContext items={tasks.map((task) => task._id)} strategy={verticalListSortingStrategy}>
-          {/* TODO: Render TaskCard components here inside a SortableContext */}
           {tasks.map((task) => (
             <TaskCard key={task._id} task={task} />
           ))}
