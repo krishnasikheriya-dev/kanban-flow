@@ -27,34 +27,30 @@ A high-performance, real-time Kanban board application built with Next.js, React
 
 ### Database Schema
 
-```mermaid
-erDiagram
-    BOARD {
-        ObjectId _id
-        String title
-        Array columnOrder
-    }
-    COLUMN {
-        ObjectId _id
-        String name
-        ObjectId boardId
-        Array taskOrder
-    }
-    TASK {
-        ObjectId _id
-        String title
-        String content
-        ObjectId columnId
-    }
+The project relies on a relational MongoDB schema optimized for Kanban operations.
 
-    BOARD ||--o{ COLUMN : "contains"
-    COLUMN ||--o{ TASK : "contains (via taskOrder)"
-```
+#### Board
+| Field | Type | Description |
+|-------|------|-------------|
+| `_id` | ObjectId | Unique identifier for the board. |
+| `title` | String | The name of the workspace. |
+| `columnOrder` | Array | Ordered list of populated Column documents or Column IDs. |
 
-The project relies on a relational MongoDB schema optimized for Kanban operations:
-- Board: Manages a collection of columns.
-- Column: Maintains an array of task IDs (taskOrder) to preserve precise vertical ordering without requiring O(N) database updates when a task is moved.
-- Task: Standalone document for holding complex metadata (title, content, etc.).
+#### Column
+| Field | Type | Description |
+|-------|------|-------------|
+| `_id` | ObjectId | Unique identifier for the column. |
+| `name` | String | The title of the column (e.g., "To Do"). |
+| `boardId` | ObjectId | Reference to the parent Board. |
+| `taskOrder` | Array | Ordered list of Task IDs to preserve precise vertical ordering without requiring O(N) database updates when a task is moved. |
+
+#### Task
+| Field | Type | Description |
+|-------|------|-------------|
+| `_id` | ObjectId | Unique identifier for the task. |
+| `title` | String | The title of the task. |
+| `content` | String | Detailed description of the task. |
+| `columnId` | ObjectId | Reference to the parent Column. |
 
 ### Drag and Drop Data Flow
 
