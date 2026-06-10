@@ -20,6 +20,7 @@ interface TaskModalProps {
 export function TaskModal({ task, isOpen, onClose }: TaskModalProps) {
   const [title, setTitle] = useState(task.title);
   const [content, setContent] = useState(task.content || "");
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const queryClient = useQueryClient();
 
   const updateTaskMutation = useMutation({
@@ -38,8 +39,54 @@ export function TaskModal({ task, isOpen, onClose }: TaskModalProps) {
     },
   });
 
+  const deleteTaskMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/tasks/${task._id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("Failed to delete task");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["board"] });
+      onClose();
+    },
+  });
+
+  if (isConfirmingDelete) {
+    return (
+      <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+        <DialogContent className="sm:max-w-[425px] bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 p-6 shadow-xl rounded-xl">
+          <DialogHeader>
+            <DialogTitle>Are you absolutely sure?</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              This action cannot be undone. This will permanently delete the task and remove it from our servers.
+            </p>
+          </div>
+          <DialogFooter className="flex justify-end gap-2 w-full">
+            <Button variant="ghost" onClick={() => setIsConfirmingDelete(false)}>Cancel</Button>
+            <Button 
+              variant="destructive" 
+              onClick={() => deleteTaskMutation.mutate()} 
+              disabled={deleteTaskMutation.isPending}
+            >
+              {deleteTaskMutation.isPending ? "Deleting..." : "Delete Task"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+    <Dialog open={isOpen} onOpenChange={(open) => {
+      if (!open) {
+        setIsConfirmingDelete(false);
+        onClose();
+      }
+    }}>
       <DialogContent className="sm:max-w-[500px] bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 p-6 shadow-xl rounded-xl">
         <DialogHeader>
           <DialogTitle className="sr-only">Edit Task</DialogTitle>
@@ -58,7 +105,14 @@ export function TaskModal({ task, isOpen, onClose }: TaskModalProps) {
             placeholder="Add a more detailed description..."
           />
         </div>
-        <DialogFooter>
+        <DialogFooter className="sm:justify-between w-full">
+          <Button
+            variant="destructive"
+            type="button"
+            onClick={() => setIsConfirmingDelete(true)}
+          >
+            Delete
+          </Button>
           <Button
             onClick={() => updateTaskMutation.mutate()}
             disabled={updateTaskMutation.isPending}

@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import { Column } from "@/models/Column";
 import { Board } from "@/models/Board";
+import { Task } from "@/models/Task";
+
+// Prevent Next.js from tree-shaking the Task import since we only use it in a Mongoose populate string
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _Task = Task;
 
 export async function GET(
   request: Request,

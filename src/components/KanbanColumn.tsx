@@ -8,6 +8,17 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface TaskData {
   _id: string;
@@ -46,6 +57,19 @@ export function KanbanColumn({ column, tasks }: KanbanColumnProps) {
       queryClient.invalidateQueries({ queryKey: ["board"] });
       setIsAddingTask(false);
       setNewTaskTitle("");
+    },
+  });
+
+  const deleteColumnMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/columns/${column._id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("Failed to delete column");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["board"] });
     },
   });
 
@@ -91,11 +115,59 @@ export function KanbanColumn({ column, tasks }: KanbanColumnProps) {
         {...listeners} 
         className="cursor-grab active:cursor-grabbing p-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 rounded-t-xl select-none"
       >
-        <CardTitle className="text-sm font-semibold flex items-center justify-between text-slate-700 dark:text-slate-300">
-          <span>{column.name}</span>
-          <span className="text-xs font-normal px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400">
-            {tasks.length}
-          </span>
+        <CardTitle className="text-sm font-semibold flex items-center justify-between text-slate-700 dark:text-slate-300 w-full">
+          <div className="flex items-center gap-2">
+            <span>{column.name}</span>
+            <span className="text-xs font-normal px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400">
+              {tasks.length}
+            </span>
+          </div>
+          <AlertDialog>
+            <AlertDialogTrigger 
+              render={
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-6 w-6 text-slate-400 hover:text-red-500 hover:bg-slate-200 dark:hover:bg-slate-700 z-10"
+                  onPointerDown={(e) => {
+                    // Prevent dnd-kit from starting a drag when clicking the button
+                    e.stopPropagation();
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation(); 
+                  }}
+                  title="Delete Column"
+                />
+              }
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+            </AlertDialogTrigger>
+            <AlertDialogContent 
+              onPointerDown={(e) => e.stopPropagation()} 
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800"
+            >
+              <AlertDialogHeader>
+                <AlertDialogTitle className="text-slate-900 dark:text-slate-100">Are you absolutely sure?</AlertDialogTitle>
+                <AlertDialogDescription className="text-slate-500 dark:text-slate-400">
+                  This action cannot be undone. This will permanently delete the column
+                  and all tasks inside it.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel className="bg-transparent border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800">Cancel</AlertDialogCancel>
+                <AlertDialogAction 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    deleteColumnMutation.mutate();
+                  }}
+                  className="bg-red-600 hover:bg-red-700 text-white border-none"
+                >
+                  {deleteColumnMutation.isPending ? "Deleting..." : "Delete Column"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </CardTitle>
       </CardHeader>
 

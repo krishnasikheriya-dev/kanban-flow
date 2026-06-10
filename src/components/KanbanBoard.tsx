@@ -16,10 +16,12 @@ import {
   SortableContext,
 } from "@dnd-kit/sortable";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { set } from "mongoose";
+
 import { useEffect, useState } from "react";
 import { KanbanColumn } from "./KanbanColumn";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import Image from "next/image";
 // TODO: Import necessary shadcn UI components (Card, ScrollArea, etc.)
 
 interface TaskData {
@@ -133,6 +135,25 @@ export function KanbanBoard({ boardId }: { boardId: string }) {
   const [activeTask, setActiveTask] = useState<TaskData | null>(null);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitle, setEditTitle] = useState("");
+  const [isAddingColumn, setIsAddingColumn] = useState(false);
+  const [newColumnName, setNewColumnName] = useState("");
+
+  const createColumnMutation = useMutation({
+    mutationFn: async (name: string) => {
+      const res = await fetch(`/api/boards/${boardId}/columns`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      if (!res.ok) throw new Error("Failed to create column");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["board", boardId] });
+      setNewColumnName("");
+      setIsAddingColumn(false);
+    },
+  });
 
   useEffect(() => {
     if (board?.title) setEditTitle(board.title);
@@ -350,7 +371,8 @@ export function KanbanBoard({ boardId }: { boardId: string }) {
 
   return (
     <div className="p-4 h-screen flex flex-col bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100">
-      <div className="mb-8 flex justify-center">
+      <div className="mb-8 flex justify-center items-center gap-4">
+        <Image src="/kanban.png" alt="Kanban Logo" width={40} height={40} className="rounded-md shadow-sm" />
         {isEditingTitle ? (
           <Input
             autoFocus
@@ -399,7 +421,7 @@ export function KanbanBoard({ boardId }: { boardId: string }) {
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex gap-4 overflow-x-auto pb-4 flex-1 items-start justify-center">
+        <div className="flex gap-4 overflow-x-auto pb-4 flex-1 items-start px-4">
           <SortableContext
             items={columns.map((col) => col._id)}
             strategy={horizontalListSortingStrategy}
@@ -412,6 +434,48 @@ export function KanbanBoard({ boardId }: { boardId: string }) {
                 tasks={column.taskOrder}
               />
             ))}
+
+            {/* Add Column UI */}
+            <div className="w-[350px] shrink-0">
+              {isAddingColumn ? (
+                <div className="bg-white dark:bg-slate-800 p-3 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700">
+                  <Input
+                    autoFocus
+                    placeholder="Column name..."
+                    value={newColumnName}
+                    onChange={(e) => setNewColumnName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && newColumnName.trim()) {
+                        createColumnMutation.mutate(newColumnName);
+                      }
+                      if (e.key === "Escape") setIsAddingColumn(false);
+                    }}
+                    className="mb-2"
+                  />
+                  <div className="flex gap-2">
+                    <Button 
+                      size="sm" 
+                      onClick={() => {
+                        if (newColumnName.trim()) createColumnMutation.mutate(newColumnName);
+                      }}
+                      disabled={createColumnMutation.isPending}
+                    >
+                      Save
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setIsAddingColumn(false)}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <button 
+                  onClick={() => setIsAddingColumn(true)}
+                  className="w-full py-3 bg-slate-200/50 dark:bg-slate-800/50 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg text-slate-600 dark:text-slate-400 font-medium transition-colors flex items-center justify-center gap-2"
+                >
+                  <span>+ Add Column</span>
+                </button>
+              )}
+            </div>
           </SortableContext>
         </div>
       </DndContext>
