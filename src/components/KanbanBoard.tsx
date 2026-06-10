@@ -15,10 +15,11 @@ import {
   horizontalListSortingStrategy,
   SortableContext,
 } from "@dnd-kit/sortable";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { set } from "mongoose";
 import { useEffect, useState } from "react";
 import { KanbanColumn } from "./KanbanColumn";
+import { Input } from "@/components/ui/input";
 // TODO: Import necessary shadcn UI components (Card, ScrollArea, etc.)
 
 interface TaskData {
@@ -49,26 +50,93 @@ export function KanbanBoard({ boardId }: { boardId: string }) {
   } = useQuery<BoardData>({
     queryKey: ["board", boardId],
     queryFn: async () => {
-      // Endpoint pulls structual hierarchy via Option 1 Deep Population
+      // Fetch actual board details
+      const boardRes = await fetch(`/api/boards/${boardId}`);
+      if (!boardRes.ok) throw new Error("Failed to fetch board data");
+      const boardData = await boardRes.json();
+
+      // Fetch columns
       const res = await fetch(`/api/boards/${boardId}/columns`);
       if (!res.ok) throw new Error("Network response was not ok");
-      // Because our GET route returns boardWithData.columnOrder array,
-      // we can construct or receive a structured response wrapper.
-      // Assuming your route structure, let's process the deep columns array:
-
       const columnOrder = await res.json();
 
-      //Fake/Backfill parent structure from sub-endpoint for local consumption
       return {
         _id: boardId,
-        title: "Project Workspace",
+        title: boardData.title || "Project Workspace",
         columnOrder,
       };
     },
   });
 
+  const updateColumnOrderMutation = useMutation({
+    mutationFn: async ({
+      columnId,
+      taskOrder,
+    }: {
+      columnId: string;
+      taskOrder: string[];
+    }) => {
+      const res = await fetch(`/api/columns/${columnId}/reorder`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ taskOrder }),
+      });
+      if (!res.ok) throw new Error("Failed to update task sequence on backend");
+      return res.json();
+    },
+    onError: (error) => {
+      console.error("Persistence sync breakdown:", error);
+      // Optional: Add a toast notification notification here for visual feedback
+    },
+  });
+
+  const moveTaskMutation = useMutation({
+    mutationFn: async (data: {
+      taskId: string;
+      sourceColumnId: string;
+      destinationColumnId: string;
+      sourceTaskOrder: string[];
+      destinationTaskOrder: string[];
+    }) => {
+      const res = await fetch(`/api/tasks/${data.taskId}/move`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error("Failed to sync cross-column move");
+      return res.json();
+    },
+    onError: (error) => {
+      console.error("Cross-column sync breakdown:", error);
+    },
+  });
+
+  const queryClient = useQueryClient();
+  const updateBoardMutation = useMutation({
+    mutationFn: async (newTitle: string) => {
+      const res = await fetch(`/api/boards/${boardId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: newTitle }),
+      });
+      if (!res.ok) throw new Error("Failed to update board title");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["board", boardId] });
+      setIsEditingTitle(false);
+    },
+  });
+
   //Local state to handle fluid UI updates during dragging before Phase 4 mutation;
   const [columns, setColumns] = useState<ColumnData[]>([]);
+  const [activeTask, setActiveTask] = useState<TaskData | null>(null);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+
+  useEffect(() => {
+    if (board?.title) setEditTitle(board.title);
+  }, [board?.title]);
 
   useEffect(() => {
     if (board?.columnOrder) {
@@ -87,7 +155,7 @@ export function KanbanBoard({ boardId }: { boardId: string }) {
 
   if (isLoading)
     return (
-      <div className="p-8 text-center text-muted-forrground">
+      <div className="p-8 text-center text-muted-foreground">
         Loading structural grid...
       </div>
     );
@@ -101,7 +169,9 @@ export function KanbanBoard({ boardId }: { boardId: string }) {
 
   // TODO: Setup DndContext and its event handlers (onDragStart, onDragOver, onDragEnd)
   function handleDragStart(event: DragStartEvent) {
-    // Phase 3 structural tracking if active item overlays are desired later
+    if (event.active.data.current?.type === "Task") {
+      setActiveTask(event.active.data.current.task);
+    }
   }
 
   function handleDragOver(event: DragOverEvent) {
@@ -216,42 +286,110 @@ export function KanbanBoard({ boardId }: { boardId: string }) {
       });
     }
 
-    // Scenario D: Sorting tasks locally within the exact same parent column container on dropped focus
-    if (active.data.current?.type === "Task" && activeId !== overId) {
+    // Scenario D & E: Sorting tasks within columns and saving cross-column drops
+    if (active.data.current?.type === "Task") {
       setColumns((prev) => {
-        const activeColumn = prev.find((col) =>
-          col.taskOrder.some((t) => t._id === activeId),
-        );
-        const overColumn = prev.find((col) =>
-          col.taskOrder.some((t) => t._id === overId),
-        );
+        const currentColumn = prev.find((col) => col.taskOrder.some((t) => t._id === activeId));
+        if (!currentColumn) return prev;
 
-        if (activeColumn && overColumn && activeColumn._id === overColumn._id) {
-          const colIdx = prev.findIndex((col) => col._id === activeColumn._id);
-          const oldIndex = activeColumn.taskOrder.findIndex(
-            (t) => t._id === activeId,
-          );
-          const newIndex = activeColumn.taskOrder.findIndex(
-            (t) => t._id === overId,
+        if (activeTask && currentColumn._id === activeTask.columnId) {
+          if (activeId !== overId) {
+            const oldIndex = currentColumn.taskOrder.findIndex((t) => t._id === activeId);
+            const newIndex = currentColumn.taskOrder.findIndex((t) => t._id === overId);
+            const updatedTasks = arrayMove([...currentColumn.taskOrder], oldIndex, newIndex);
+            
+            updateColumnOrderMutation.mutate({
+              columnId: currentColumn._id,
+              taskOrder: updatedTasks.map(t => t._id),
+            });
+
+            const newColumns = [...prev];
+            const colIdx = prev.findIndex(c => c._id === currentColumn._id);
+            newColumns[colIdx] = { ...currentColumn, taskOrder: updatedTasks };
+            return newColumns;
+          }
+        } else if (activeTask && currentColumn._id !== activeTask.columnId) {
+          const oldIndex = currentColumn.taskOrder.findIndex((t) => t._id === activeId);
+          let newIndex = currentColumn.taskOrder.length - 1;
+          if (over.data.current?.type === "Task") {
+             newIndex = currentColumn.taskOrder.findIndex((t) => t._id === overId);
+          } else if (over.data.current?.type === "Column") {
+             newIndex = currentColumn.taskOrder.length;
+          }
+          
+          let updatedCurrentTasks = [...currentColumn.taskOrder];
+          if (oldIndex !== newIndex && newIndex !== -1 && oldIndex !== -1) {
+              updatedCurrentTasks = arrayMove(updatedCurrentTasks, oldIndex, newIndex);
+          }
+
+          updatedCurrentTasks = updatedCurrentTasks.map(t => 
+             t._id === activeId ? { ...t, columnId: currentColumn._id } : t
           );
 
-          const updatedTasks = arrayMove(
-            [...activeColumn.taskOrder],
-            oldIndex,
-            newIndex,
-          );
+          const sourceColumn = prev.find(c => c._id === activeTask.columnId);
+          if (sourceColumn) {
+             moveTaskMutation.mutate({
+               taskId: activeId,
+               sourceColumnId: sourceColumn._id,
+               destinationColumnId: currentColumn._id,
+               sourceTaskOrder: sourceColumn.taskOrder.map(t => t._id),
+               destinationTaskOrder: updatedCurrentTasks.map(t => t._id),
+             });
+          }
+
           const newColumns = [...prev];
-          newColumns[colIdx] = { ...activeColumn, taskOrder: updatedTasks };
+          const colIdx = prev.findIndex(c => c._id === currentColumn._id);
+          newColumns[colIdx] = { ...currentColumn, taskOrder: updatedCurrentTasks };
           return newColumns;
         }
         return prev;
       });
+      setActiveTask(null);
     }
   }
 
   return (
     <div className="p-4 h-screen flex flex-col bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100">
-      <h1 className="text-2xl font-bold mb-4">{board.title}</h1>
+      <div className="mb-8 flex justify-center">
+        {isEditingTitle ? (
+          <Input
+            autoFocus
+            value={editTitle}
+            onChange={(e) => setEditTitle(e.target.value)}
+            onBlur={() => {
+              if (editTitle.trim() && editTitle !== board.title) {
+                updateBoardMutation.mutate(editTitle);
+              } else {
+                setIsEditingTitle(false);
+                setEditTitle(board.title);
+              }
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                if (editTitle.trim() && editTitle !== board.title) {
+                  updateBoardMutation.mutate(editTitle);
+                } else {
+                  setIsEditingTitle(false);
+                  setEditTitle(board.title);
+                }
+              }
+              if (e.key === "Escape") {
+                setIsEditingTitle(false);
+                setEditTitle(board.title);
+              }
+            }}
+            className="text-2xl font-bold text-center bg-transparent border-slate-300 dark:border-slate-700 w-[300px] shadow-sm"
+          />
+        ) : (
+          <h1 
+            onClick={() => setIsEditingTitle(true)}
+            className="text-2xl font-bold cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-800 px-4 py-1 rounded-md transition-colors inline-block"
+            title="Click to edit"
+          >
+            {board.title}
+          </h1>
+        )}
+      </div>
 
       {/* TODO: Wrap the columns in a DndContext and SortableContext */}
       <DndContext
@@ -261,7 +399,7 @@ export function KanbanBoard({ boardId }: { boardId: string }) {
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex gap-4 overflow-x-auto pb-4 flex-1 items-start">
+        <div className="flex gap-4 overflow-x-auto pb-4 flex-1 items-start justify-center">
           <SortableContext
             items={columns.map((col) => col._id)}
             strategy={horizontalListSortingStrategy}

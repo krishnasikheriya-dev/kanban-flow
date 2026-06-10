@@ -1,8 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { TaskModal } from "./TaskModal";
 
 interface TaskData {
   _id: string;
@@ -16,11 +18,7 @@ interface TaskCardProps {
 }
 
 export function TaskCard({ task }: TaskCardProps) {
-  // Replace 'any' with your ITask type
-  // TODO: Setup `useSortable` for the task.
-  // Hint: You need to extract `setNodeRef`, `attributes`, `listeners`, and `transform` styles
-  // from useSortable and apply them to the Card.
-
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const {
     attributes,
     listeners,
@@ -45,23 +43,35 @@ export function TaskCard({ task }: TaskCardProps) {
   };
 
   return (
-    <Card
-      ref={setNodeRef}
-      style={style}
-      {...attributes}
-      {...listeners}
-      className="cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 select-none outline-none"
-    >
-      <CardHeader className="p-3">
-        <CardTitle className="text-sm font-medium text-slate-800 dark:text-slate-200">
-          {task.title}
-        </CardTitle>
-      </CardHeader>
-      {task.content && (
-        <CardContent className="p-3 pt-0 text-xs text-muted-foreground wrap-break-word line-clamp-3">
-          {task.content}
-        </CardContent>
+    <>
+      <Card
+        ref={setNodeRef}
+        style={style}
+        {...attributes}
+        {...listeners}
+        onClick={() => setIsModalOpen(true)}
+        className="cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 select-none outline-none"
+      >
+        <CardHeader className="p-3">
+          <CardTitle className="text-sm font-medium text-slate-800 dark:text-slate-200">
+            {task.title}
+          </CardTitle>
+        </CardHeader>
+        {task.content && (
+          <CardContent className="p-3 pt-0 text-xs text-muted-foreground break-words line-clamp-3">
+            {task.content}
+          </CardContent>
+        )}
+      </Card>
+      
+      {/* We render the modal conditionally so it doesn't pollute the DOM when closed */}
+      {isModalOpen && (
+        <TaskModal 
+          task={task} 
+          isOpen={isModalOpen} 
+          onClose={() => setIsModalOpen(false)} 
+        />
       )}
-    </Card>
+    </>
   );
 }

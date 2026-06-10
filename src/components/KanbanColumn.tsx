@@ -4,6 +4,10 @@ import { useSortable, SortableContext, verticalListSortingStrategy } from '@dnd-
 import { CSS } from '@dnd-kit/utilities';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { TaskCard } from './TaskCard';
+import { useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 interface TaskData {
   _id: string;
@@ -24,6 +28,32 @@ interface KanbanColumnProps {
 }
 
 export function KanbanColumn({ column, tasks }: KanbanColumnProps) {
+  const [isAddingTask, setIsAddingTask] = useState(false);
+  const [newTaskTitle, setNewTaskTitle] = useState("");
+  const queryClient = useQueryClient();
+
+  const createTaskMutation = useMutation({
+    mutationFn: async (title: string) => {
+      const res = await fetch(`/api/columns/${column._id}/tasks`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title }),
+      });
+      if (!res.ok) throw new Error("Failed to create task");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["board"] });
+      setIsAddingTask(false);
+      setNewTaskTitle("");
+    },
+  });
+
+  function handleCreateTask() {
+    if (!newTaskTitle.trim()) return;
+    createTaskMutation.mutate(newTaskTitle);
+  }
+
   // TODO: Setup `useSortable` for the column itself so columns can be reordered (optional but recommended)
   const {
     attributes,
@@ -78,6 +108,54 @@ export function KanbanColumn({ column, tasks }: KanbanColumnProps) {
           ))}
         </SortableContext>
       </CardContent>
+
+      <div className="p-2 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 rounded-b-xl">
+        {isAddingTask ? (
+          <div className="flex flex-col gap-2">
+            <Input
+              autoFocus
+              placeholder="Task title..."
+              value={newTaskTitle}
+              onChange={(e) => setNewTaskTitle(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleCreateTask();
+                if (e.key === "Escape") {
+                  setIsAddingTask(false);
+                  setNewTaskTitle("");
+                }
+              }}
+            />
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                onClick={handleCreateTask}
+                disabled={createTaskMutation.isPending}
+              >
+                {createTaskMutation.isPending ? "Saving..." : "Save"}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setIsAddingTask(false);
+                  setNewTaskTitle("");
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <Button
+            variant="ghost"
+            onClick={() => setIsAddingTask(true)}
+            className="w-full text-slate-500 dark:text-slate-400 flex items-center justify-center gap-1"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+            Add Card
+          </Button>
+        )}
+      </div>
     </Card>
   );
 }
