@@ -4,7 +4,7 @@ import { Column } from "@/models/Column";
 import { Board } from "@/models/Board";
 import { Task } from "@/models/Task";
 
-const _Task = Task;
+void Task;
 
 export async function GET(
   request: Request,
